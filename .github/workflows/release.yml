@@ -229,44 +229,21 @@ jobs:
           path: dist/*.whl
 
   # ==========================================================================
-  # CUDA Builds (Windows)
+  # CUDA Builds (Windows) - Only CUDA 12.4 (CUDA 11.8 has thrust include issues)
   # ==========================================================================
   
   build-cuda-windows:
-    name: Build CUDA ${{ matrix.cuda }} (Windows x86_64)
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - cuda: '11.8.0'
-            cuda_short: 'cu118'
-            runner: 'windows-2022'
-            msvc_toolset: '14.29'  # VS 2019 toolset, pre-installed and compatible with CUDA 11.8
-          - cuda: '12.4.0'
-            cuda_short: 'cu124'
-            runner: 'windows-2025'
-            msvc_toolset: ''
+    name: Build CUDA 12.4 (Windows x86_64)
+    runs-on: windows-2025
     
     steps:
       - uses: actions/checkout@v4
-      
-      - name: List installed MSVC toolsets
-        if: matrix.msvc_toolset != ''
-        run: |
-          Write-Host "=== Listing installed MSVC toolsets ==="
-          $toolsetsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC"
-          if (Test-Path $toolsetsPath) {
-            Get-ChildItem -Path $toolsetsPath -Directory | ForEach-Object { Write-Host $_.Name }
-          } else {
-            Write-Host "Toolsets path not found: $toolsetsPath"
-          }
       
       - name: Install CUDA Toolkit
         uses: Jimver/cuda-toolkit@v0.2.30
         id: cuda-toolkit
         with:
-          cuda: ${{ matrix.cuda }}
+          cuda: '12.4.0'
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cublas_dev", "curand_dev", "nvrtc_dev"]'
       
@@ -288,30 +265,6 @@ jobs:
       
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
-        with:
-          toolset: ${{ matrix.msvc_toolset }}
-      
-      - name: Verify MSVC version
-        run: |
-          Write-Host "=== MSVC Environment ==="
-          Write-Host "VCToolsVersion: $env:VCToolsVersion"
-          Write-Host "VisualStudioVersion: $env:VisualStudioVersion"
-          Write-Host ""
-          Write-Host "=== cl.exe version ==="
-          cl 2>&1 | Select-Object -First 5
-      
-      - name: Setup CUDA include paths for Windows CUDA 11.8
-        if: matrix.cuda == '11.8.0'
-        run: |
-          $cudaPath = "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
-          $cudaInclude = "$cudaPath\include"
-          Write-Host "Setting CUDA include path: $cudaInclude"
-          # Set BINDGEN_EXTRA_CLANG_ARGS for bindgen_cuda to find thrust and cuda/std headers
-          echo "BINDGEN_EXTRA_CLANG_ARGS=-I`"$cudaInclude`"" >> $env:GITHUB_ENV
-          # Set NVCC_PREPEND_FLAGS for nvcc to pass include path to host compiler
-          echo "NVCC_PREPEND_FLAGS=-I`"$cudaInclude`"" >> $env:GITHUB_ENV
-          # Also set CXXFLAGS as fallback
-          echo "CXXFLAGS=/I`"$cudaInclude`"" >> $env:GITHUB_ENV
       
       - name: Build wheels
         env:
@@ -326,14 +279,14 @@ jobs:
         run: |
           cd dist
           for f in *.whl; do
-            newname=$(echo "$f" | sed 's/-cp/-${{ matrix.cuda_short }}-cp/')
+            newname=$(echo "$f" | sed 's/-cp/-cu124-cp/')
             mv "$f" "$newname"
           done
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-cuda-${{ matrix.cuda_short }}-windows-x86_64
+          name: wheels-cuda-cu124-windows-x86_64
           path: dist/*.whl
 
   # ==========================================================================
@@ -437,7 +390,6 @@ jobs:
             | CPU | Windows x86_64 | `*-win_amd64.whl` |
             | Metal | macOS ARM64 | `*-metal-*-macosx*arm64.whl` |
             | CUDA 11.8 | Ubuntu 22.04 x86_64 | `*-cu118-*-ubuntu22_04*.whl` |
-            | CUDA 11.8 | Windows x86_64 | `*-cu118-*-win_amd64.whl` |
             | CUDA 12.4 | Ubuntu 22.04 x86_64 | `*-cu124-*-ubuntu22_04*.whl` |
             | CUDA 12.4 | Windows x86_64 | `*-cu124-*-win_amd64.whl` |
         env:
