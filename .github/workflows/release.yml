@@ -296,11 +296,11 @@ jobs:
           path: dist/*.whl
 
   # ==========================================================================
-  # Create GitHub Release
+  # Collect All Wheels (always runs, for download without release)
   # ==========================================================================
   
-  release:
-    name: Create Release
+  collect-wheels:
+    name: Collect All Wheels
     needs:
       - build-cpu-linux
       - build-cpu-macos-arm64
@@ -309,16 +309,48 @@ jobs:
       - build-cuda-linux
       - build-cuda-windows
     runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-wheels
+          merge-multiple: true
+      
+      - name: List all wheels
+        run: |
+          echo "=== All wheels built ==="
+          ls -la all-wheels/
+          echo ""
+          echo "Total size:"
+          du -sh all-wheels/
+      
+      - name: Upload combined artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-wheels-v${{ inputs.version }}
+          path: all-wheels/*.whl
+          retention-days: 30
+
+  # ==========================================================================
+  # Create GitHub Release
+  # ==========================================================================
+  
+  release:
+    name: Create Release
+    needs:
+      - collect-wheels
+    runs-on: ubuntu-latest
     if: ${{ inputs.create_release }}
     
     steps:
       - uses: actions/checkout@v4
       
-      - name: Download all artifacts
+      - name: Download combined wheels
         uses: actions/download-artifact@v4
         with:
+          name: all-wheels-v${{ inputs.version }}
           path: dist
-          merge-multiple: true
       
       - name: List wheels
         run: ls -la dist/
