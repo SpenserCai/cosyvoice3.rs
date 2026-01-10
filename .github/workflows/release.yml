@@ -271,13 +271,15 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+      
       - name: Build wheels
-        shell: bash
         env:
           CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
           CUDA_COMPUTE_CAP: "80"
         run: |
-          mkdir -p dist
+          New-Item -ItemType Directory -Force -Path dist
           maturin build --release --features "onnx,symphonia,cuda" -o dist
       
       - name: Rename wheel to indicate CUDA version
