@@ -27,11 +27,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-      
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -44,8 +39,12 @@ jobs:
           manylinux: auto
           args: --release --features "onnx,symphonia" -o dist
           before-script-linux: |
-            apt-get update
-            apt-get install -y protobuf-compiler
+            # Install protoc from GitHub releases (same version as arduino/setup-protoc)
+            PB_REL="https://github.com/protocolbuffers/protobuf/releases"
+            curl -LO $PB_REL/download/v28.3/protoc-28.3-linux-x86_64.zip
+            unzip protoc-28.3-linux-x86_64.zip -d /usr/local
+            rm protoc-28.3-linux-x86_64.zip
+            protoc --version
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -213,12 +212,13 @@ jobs:
           mkdir -p dist
           maturin build --release --features "onnx,symphonia,cuda" -o dist
       
-      - name: Rename wheel to indicate CUDA version
+      - name: Rename wheel to indicate CUDA version and Ubuntu
         run: |
           cd dist
           for f in *.whl; do
-            # Add +cuXXX suffix before platform tag
-            newname=$(echo "$f" | sed 's/-cp/-${{ matrix.cuda_short }}-cp/')
+            # Add +cuXXX and ubuntu22.04 suffix before platform tag
+            # e.g., cosyvoice3-0.1.0-cp310-abi3-linux_x86_64.whl -> cosyvoice3-0.1.0-cu118-cp310-abi3-ubuntu22_04_x86_64.whl
+            newname=$(echo "$f" | sed 's/-cp/-${{ matrix.cuda_short }}-cp/' | sed 's/linux_x86_64/ubuntu22_04_x86_64/')
             mv "$f" "$newname"
           done
       
@@ -272,6 +272,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       
       - name: Build wheels
+        shell: bash
         env:
           CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
           CUDA_COMPUTE_CAP: "75;80;86;89;90"
@@ -362,9 +363,9 @@ jobs:
             | CPU | macOS ARM64 | `*-macosx*arm64.whl` |
             | CPU | Windows x86_64 | `*-win_amd64.whl` |
             | Metal | macOS ARM64 | `*-metal-*-macosx*arm64.whl` |
-            | CUDA 11.8 | Linux x86_64 | `*-cu118-*-manylinux*.whl` |
+            | CUDA 11.8 | Ubuntu 22.04 x86_64 | `*-cu118-*-ubuntu22_04*.whl` |
             | CUDA 11.8 | Windows x86_64 | `*-cu118-*-win_amd64.whl` |
-            | CUDA 12.4 | Linux x86_64 | `*-cu124-*-manylinux*.whl` |
+            | CUDA 12.4 | Ubuntu 22.04 x86_64 | `*-cu124-*-ubuntu22_04*.whl` |
             | CUDA 12.4 | Windows x86_64 | `*-cu124-*-win_amd64.whl` |
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
