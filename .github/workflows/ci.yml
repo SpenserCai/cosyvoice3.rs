@@ -74,9 +74,18 @@ jobs:
       - name: Build (CPU)
         run: maturin build --release --features "onnx,symphonia"
       
-      - name: Test import
+      - name: Test import (Unix)
+        if: runner.os != 'Windows'
         run: |
           pip install target/wheels/*.whl
+          python -c "from cosyvoice3 import CosyVoice3, PyDevice; print(f'CPU: {PyDevice.best_available()}')"
+      
+      - name: Test import (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $wheel = Get-ChildItem -Path target/wheels -Filter *.whl | Select-Object -First 1
+          pip install $wheel.FullName
           python -c "from cosyvoice3 import CosyVoice3, PyDevice; print(f'CPU: {PyDevice.best_available()}')"
 
   # Metal build test (macOS ARM64 only)
@@ -122,7 +131,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.23
+        uses: Jimver/cuda-toolkit@v0.2.30
         id: cuda-toolkit
         with:
           cuda: '12.4.0'

@@ -163,14 +163,21 @@ jobs:
         include:
           - cuda: '11.8.0'
             cuda_short: 'cu118'
+            gcc_version: '11'
           - cuda: '12.4.0'
             cuda_short: 'cu124'
+            gcc_version: '12'
     
     steps:
       - uses: actions/checkout@v4
       
+      - name: Install GCC ${{ matrix.gcc_version }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-${{ matrix.gcc_version }} g++-${{ matrix.gcc_version }}
+      
       - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.23
+        uses: Jimver/cuda-toolkit@v0.2.30
         id: cuda-toolkit
         with:
           cuda: ${{ matrix.cuda }}
@@ -197,6 +204,9 @@ jobs:
         env:
           CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
           CUDA_COMPUTE_CAP: "75;80;86;89;90"
+          NVCC_CCBIN: /usr/bin/gcc-${{ matrix.gcc_version }}
+          CC: gcc-${{ matrix.gcc_version }}
+          CXX: g++-${{ matrix.gcc_version }}
         run: |
           mkdir -p dist
           maturin build --release --features "onnx,symphonia,cuda" -o dist
@@ -236,7 +246,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.23
+        uses: Jimver/cuda-toolkit@v0.2.30
         id: cuda-toolkit
         with:
           cuda: ${{ matrix.cuda }}
