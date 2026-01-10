@@ -234,17 +234,17 @@ jobs:
   
   build-cuda-windows:
     name: Build CUDA ${{ matrix.cuda }} (Windows x86_64)
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - cuda: '11.8.0'
             cuda_short: 'cu118'
-            msvc_toolset: '14.36'  # VS 2022 17.6, supported by CUDA 11.8
+            runner: 'windows-2022'  # VS 2022 for CUDA 11.8 compatibility
           - cuda: '12.4.0'
             cuda_short: 'cu124'
-            msvc_toolset: ''  # Use default (latest)
+            runner: 'windows-2025'  # VS 2026 for CUDA 12.4
     
     steps:
       - uses: actions/checkout@v4
@@ -275,13 +275,11 @@ jobs:
       
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
-        with:
-          toolset: ${{ matrix.msvc_toolset || '' }}
       
       - name: Build wheels
         env:
           CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
-          CUDA_COMPUTE_CAP: "80"
+          CUDA_COMPUTE_CAP: "75;80;86;89;90"
         run: |
           New-Item -ItemType Directory -Force -Path dist
           maturin build --release --features "onnx,symphonia,cuda" -o dist
