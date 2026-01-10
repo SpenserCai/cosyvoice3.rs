@@ -300,6 +300,19 @@ jobs:
           Write-Host "=== cl.exe version ==="
           cl 2>&1 | Select-Object -First 5
       
+      - name: Setup CUDA include paths for Windows CUDA 11.8
+        if: matrix.cuda == '11.8.0'
+        run: |
+          $cudaPath = "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
+          $cudaInclude = "$cudaPath\include"
+          Write-Host "Setting CUDA include path: $cudaInclude"
+          # Set BINDGEN_EXTRA_CLANG_ARGS for bindgen_cuda to find thrust and cuda/std headers
+          echo "BINDGEN_EXTRA_CLANG_ARGS=-I`"$cudaInclude`"" >> $env:GITHUB_ENV
+          # Set NVCC_PREPEND_FLAGS for nvcc to pass include path to host compiler
+          echo "NVCC_PREPEND_FLAGS=-I`"$cudaInclude`"" >> $env:GITHUB_ENV
+          # Also set CXXFLAGS as fallback
+          echo "CXXFLAGS=/I`"$cudaInclude`"" >> $env:GITHUB_ENV
+      
       - name: Build wheels
         env:
           CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
