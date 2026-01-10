@@ -160,6 +160,7 @@ jobs:
       - name: Build (CUDA)
         env:
           CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
+          CUDA_COMPUTE_CAP: "80"
         run: maturin build --release --features "onnx,symphonia,cuda"
       
       - name: Test import
