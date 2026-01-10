@@ -336,6 +336,8 @@ jobs:
       - collect-wheels
     runs-on: ubuntu-latest
     if: ${{ inputs.create_release }}
+    permissions:
+      contents: write
     
     steps:
       - uses: actions/checkout@v4
