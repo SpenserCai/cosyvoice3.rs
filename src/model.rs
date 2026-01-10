@@ -1,5 +1,6 @@
 //! CosyVoice3 model implementation
 
+use crate::audio::{pcm_decode, AudioInput};
 use crate::config::CosyVoice3Config;
 use crate::device::PyDevice;
 use crate::error::{wrap_candle_err, CosyVoice3Error};
@@ -15,6 +16,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tokenizers::Tokenizer;
 
+/// Type alias for prompt features: (speech_tokens, mel_spectrogram, speaker_embedding)
+type PromptFeatures = (Vec<u32>, Vec<Vec<f32>>, Vec<f32>);
+
 /// CosyVoice3 TTS model
 #[pyclass]
 pub struct CosyVoice3 {
@@ -22,6 +26,10 @@ pub struct CosyVoice3 {
     config: CosyVoice3Config,
     device: Device,
     dtype: DType,
+    #[allow(dead_code)]
+    model_dir: PathBuf,
+    #[cfg(feature = "onnx")]
+    frontend: Option<candle_transformers::models::cosyvoice::CosyVoice3Frontend>,
 }
 
 struct CosyVoice3Inner {
@@ -103,6 +111,13 @@ impl CosyVoice3 {
         let hift_config = config.to_hift_config();
         let vocoder = CausalHiFTGenerator::new(hift_config, hift_vb).map_err(wrap_candle_err)?;
 
+        // Load frontend for feature extraction (ONNX only)
+        #[cfg(feature = "onnx")]
+        let frontend = {
+            use candle_transformers::models::cosyvoice::CosyVoice3Frontend;
+            CosyVoice3Frontend::load(&model_path, &Device::Cpu).ok()
+        };
+
         let inner = CosyVoice3Inner {
             llm,
             flow_decoder,
@@ -115,6 +130,9 @@ impl CosyVoice3 {
             config,
             device: candle_device,
             dtype,
+            model_dir: model_path,
+            #[cfg(feature = "onnx")]
+            frontend,
         })
     }
 
@@ -288,6 +306,239 @@ impl CosyVoice3 {
         Ok(pcm_data)
     }
 
+    /// Zero-shot voice cloning inference
+    ///
+    /// Synthesize speech using a prompt audio for voice cloning.
+    /// This is the simplest API - just provide text and a prompt audio file.
+    ///
+    /// Args:
+    ///     text: Text to synthesize
+    ///     prompt_text: Prompt text (should match the content of prompt audio)
+    ///     prompt_wav: Path to prompt audio file (WAV/MP3/OGG) or list of audio samples
+    ///     prompt_wav_sample_rate: Sample rate of prompt audio (only needed if prompt_wav is samples)
+    ///     sampling_config: Sampling configuration (optional)
+    ///     n_timesteps: Number of CFM sampling steps (default: 10)
+    ///
+    /// Returns:
+    ///     Audio waveform as a list of floats
+    ///
+    /// Example:
+    ///     >>> model = CosyVoice3("model_dir")
+    ///     >>> audio = model.inference_zero_shot(
+    ///     ...     "Hello, world!",
+    ///     ...     "You are a helpful assistant.<|endofprompt|>Hi there.",
+    ///     ...     "prompt.wav"
+    ///     ... )
+    #[pyo3(signature = (text, prompt_text, prompt_wav, prompt_wav_sample_rate=None, sampling_config=None, n_timesteps=10))]
+    fn inference_zero_shot(
+        &self,
+        text: &str,
+        prompt_text: &str,
+        prompt_wav: AudioInput,
+        prompt_wav_sample_rate: Option<u32>,
+        sampling_config: Option<SamplingConfig>,
+        n_timesteps: usize,
+    ) -> PyResult<Vec<f32>> {
+        let (prompt_speech_tokens, prompt_mel, speaker_embedding) =
+            self.extract_prompt_features(prompt_wav, prompt_wav_sample_rate)?;
+
+        self.synthesize(
+            text,
+            prompt_speech_tokens,
+            prompt_mel,
+            speaker_embedding,
+            prompt_text,
+            SynthesisMode::ZeroShot,
+            None,
+            sampling_config,
+            n_timesteps,
+        )
+    }
+
+    /// Cross-lingual voice cloning inference
+    ///
+    /// Synthesize speech in a different language while preserving the voice from prompt audio.
+    /// The LLM does not receive prompt text or speech tokens, only the flow decoder uses them.
+    ///
+    /// Args:
+    ///     text: Text to synthesize (can include language tags like <|en|>, <|zh|>, etc.)
+    ///     prompt_wav: Path to prompt audio file or list of audio samples
+    ///     prompt_wav_sample_rate: Sample rate of prompt audio (only needed if prompt_wav is samples)
+    ///     sampling_config: Sampling configuration (optional)
+    ///     n_timesteps: Number of CFM sampling steps (default: 10)
+    ///
+    /// Returns:
+    ///     Audio waveform as a list of floats
+    ///
+    /// Example:
+    ///     >>> model = CosyVoice3("model_dir")
+    ///     >>> audio = model.inference_cross_lingual(
+    ///     ...     "<|en|>Hello, this is cross-lingual synthesis.",
+    ///     ...     "chinese_prompt.wav"
+    ///     ... )
+    #[pyo3(signature = (text, prompt_wav, prompt_wav_sample_rate=None, sampling_config=None, n_timesteps=10))]
+    fn inference_cross_lingual(
+        &self,
+        text: &str,
+        prompt_wav: AudioInput,
+        prompt_wav_sample_rate: Option<u32>,
+        sampling_config: Option<SamplingConfig>,
+        n_timesteps: usize,
+    ) -> PyResult<Vec<f32>> {
+        let (prompt_speech_tokens, prompt_mel, speaker_embedding) =
+            self.extract_prompt_features(prompt_wav, prompt_wav_sample_rate)?;
+
+        self.synthesize(
+            text,
+            prompt_speech_tokens,
+            prompt_mel,
+            speaker_embedding,
+            "", // Empty prompt text for cross-lingual
+            SynthesisMode::CrossLingual,
+            None,
+            sampling_config,
+            n_timesteps,
+        )
+    }
+
+    /// Instruction-based voice synthesis
+    ///
+    /// Synthesize speech with specific instructions (e.g., speaking style, dialect).
+    /// The instruction text guides the synthesis while the prompt audio provides the voice.
+    ///
+    /// Args:
+    ///     text: Text to synthesize
+    ///     instruct_text: Instruction for synthesis style (e.g., "请用广东话表达。<|endofprompt|>")
+    ///     prompt_wav: Path to prompt audio file or list of audio samples
+    ///     prompt_wav_sample_rate: Sample rate of prompt audio (only needed if prompt_wav is samples)
+    ///     sampling_config: Sampling configuration (optional)
+    ///     n_timesteps: Number of CFM sampling steps (default: 10)
+    ///
+    /// Returns:
+    ///     Audio waveform as a list of floats
+    ///
+    /// Example:
+    ///     >>> model = CosyVoice3("model_dir")
+    ///     >>> audio = model.inference_instruct(
+    ///     ...     "你好世界",
+    ///     ...     "You are a helpful assistant. 请用广东话表达。<|endofprompt|>",
+    ///     ...     "prompt.wav"
+    ///     ... )
+    #[pyo3(signature = (text, instruct_text, prompt_wav, prompt_wav_sample_rate=None, sampling_config=None, n_timesteps=10))]
+    fn inference_instruct(
+        &self,
+        text: &str,
+        instruct_text: &str,
+        prompt_wav: AudioInput,
+        prompt_wav_sample_rate: Option<u32>,
+        sampling_config: Option<SamplingConfig>,
+        n_timesteps: usize,
+    ) -> PyResult<Vec<f32>> {
+        let (prompt_speech_tokens, prompt_mel, speaker_embedding) =
+            self.extract_prompt_features(prompt_wav, prompt_wav_sample_rate)?;
+
+        self.synthesize(
+            text,
+            prompt_speech_tokens,
+            prompt_mel,
+            speaker_embedding,
+            instruct_text,
+            SynthesisMode::Instruct,
+            Some(instruct_text),
+            sampling_config,
+            n_timesteps,
+        )
+    }
+
+    /// Load prompt features from a safetensors file
+    ///
+    /// This is useful when you have pre-extracted features and want to reuse them.
+    ///
+    /// Args:
+    ///     features_path: Path to the safetensors file containing prompt features
+    ///
+    /// Returns:
+    ///     Tuple of (prompt_speech_tokens, prompt_mel, speaker_embedding)
+    #[pyo3(signature = (features_path,))]
+    fn load_prompt_features(&self, features_path: &str) -> PyResult<PromptFeatures> {
+        let features = candle_core::safetensors::load(features_path, &self.device)
+            .map_err(wrap_candle_err)?;
+
+        // Load speech tokens
+        let tokens_tensor = features
+            .get("prompt_speech_tokens")
+            .ok_or_else(|| {
+                CosyVoice3Error::InvalidArgument(
+                    "Missing prompt_speech_tokens in features file".to_string(),
+                )
+            })?;
+
+        let tokens: Vec<u32> = if tokens_tensor.dtype() == DType::I64 {
+            tokens_tensor
+                .flatten_all()
+                .map_err(wrap_candle_err)?
+                .to_vec1::<i64>()
+                .map_err(wrap_candle_err)?
+                .into_iter()
+                .map(|x| x as u32)
+                .collect()
+        } else {
+            tokens_tensor
+                .flatten_all()
+                .map_err(wrap_candle_err)?
+                .to_vec1::<i32>()
+                .map_err(wrap_candle_err)?
+                .into_iter()
+                .map(|x| x as u32)
+                .collect()
+        };
+
+        // Load mel spectrogram
+        let mel_tensor = features.get("prompt_mel").ok_or_else(|| {
+            CosyVoice3Error::InvalidArgument("Missing prompt_mel in features file".to_string())
+        })?;
+
+        let mel_shape = mel_tensor.dims();
+        let t_dim = if mel_shape.len() == 3 {
+            mel_shape[1]
+        } else {
+            mel_shape[0]
+        };
+        let mel_dim = if mel_shape.len() == 3 {
+            mel_shape[2]
+        } else {
+            mel_shape[1]
+        };
+
+        let mel_flat: Vec<f32> = mel_tensor
+            .flatten_all()
+            .map_err(wrap_candle_err)?
+            .to_dtype(DType::F32)
+            .map_err(wrap_candle_err)?
+            .to_vec1()
+            .map_err(wrap_candle_err)?;
+
+        let mel: Vec<Vec<f32>> = mel_flat.chunks(mel_dim).map(|c| c.to_vec()).collect();
+        let mel = mel.into_iter().take(t_dim).collect();
+
+        // Load speaker embedding
+        let spk_tensor = features.get("speaker_embedding").ok_or_else(|| {
+            CosyVoice3Error::InvalidArgument(
+                "Missing speaker_embedding in features file".to_string(),
+            )
+        })?;
+
+        let speaker_embedding: Vec<f32> = spk_tensor
+            .flatten_all()
+            .map_err(wrap_candle_err)?
+            .to_dtype(DType::F32)
+            .map_err(wrap_candle_err)?
+            .to_vec1()
+            .map_err(wrap_candle_err)?;
+
+        Ok((tokens, mel, speaker_embedding))
+    }
+
 
 
     /// Get the sample rate
@@ -317,6 +568,99 @@ impl CosyVoice3 {
 }
 
 impl CosyVoice3 {
+    /// Extract prompt features from audio input
+    ///
+    /// This method handles both file paths and raw audio samples.
+    /// When ONNX feature is enabled, it uses the frontend to extract features.
+    /// Otherwise, it returns an error.
+    fn extract_prompt_features(
+        &self,
+        prompt_wav: AudioInput,
+        sample_rate: Option<u32>,
+    ) -> PyResult<PromptFeatures> {
+        // Load audio data
+        let (audio_data, audio_sample_rate) = match prompt_wav {
+            AudioInput::FilePath(path) => pcm_decode(&path)?,
+            AudioInput::Samples { data, sample_rate } => (data, sample_rate),
+        };
+
+        let audio_sample_rate = sample_rate.unwrap_or(audio_sample_rate);
+
+        #[cfg(feature = "onnx")]
+        {
+            let frontend = self.frontend.as_ref().ok_or_else(|| {
+                CosyVoice3Error::FeatureNotAvailable(
+                    "ONNX frontend models not found. Please ensure speech_tokenizer_v3.onnx and campplus.onnx are in the model directory.".to_string(),
+                )
+            })?;
+
+            // Create tensor from audio data
+            let audio_tensor =
+                Tensor::from_vec(audio_data.clone(), audio_data.len(), &Device::Cpu)
+                    .map_err(wrap_candle_err)?;
+
+            // Extract features using frontend
+            let (tokens, mel, embedding) = frontend
+                .extract_prompt_features(&audio_tensor, audio_sample_rate as usize)
+                .map_err(wrap_candle_err)?;
+
+            // Convert tokens to Vec<u32>
+            let prompt_tokens: Vec<u32> = tokens
+                .flatten_all()
+                .map_err(wrap_candle_err)?
+                .to_vec1::<i64>()
+                .map_err(wrap_candle_err)?
+                .into_iter()
+                .map(|x| x as u32)
+                .collect();
+
+            // Convert mel to Vec<Vec<f32>>
+            let mel = mel.to_dtype(DType::F32).map_err(wrap_candle_err)?;
+            let mel_shape = mel.dims();
+            let t_dim = if mel_shape.len() == 3 {
+                mel_shape[1]
+            } else {
+                mel_shape[0]
+            };
+            let mel_dim = if mel_shape.len() == 3 {
+                mel_shape[2]
+            } else {
+                mel_shape[1]
+            };
+
+            let mel_flat: Vec<f32> = mel
+                .flatten_all()
+                .map_err(wrap_candle_err)?
+                .to_vec1()
+                .map_err(wrap_candle_err)?;
+
+            let prompt_mel: Vec<Vec<f32>> = mel_flat
+                .chunks(mel_dim)
+                .take(t_dim)
+                .map(|c| c.to_vec())
+                .collect();
+
+            // Convert speaker embedding to Vec<f32>
+            let speaker_embedding: Vec<f32> = embedding
+                .flatten_all()
+                .map_err(wrap_candle_err)?
+                .to_dtype(DType::F32)
+                .map_err(wrap_candle_err)?
+                .to_vec1()
+                .map_err(wrap_candle_err)?;
+
+            Ok((prompt_tokens, prompt_mel, speaker_embedding))
+        }
+
+        #[cfg(not(feature = "onnx"))]
+        {
+            let _ = (audio_data, audio_sample_rate);
+            Err(CosyVoice3Error::FeatureNotAvailable(
+                "Feature extraction requires the 'onnx' feature. Please compile with --features onnx, or use load_prompt_features() with pre-extracted features.".to_string(),
+            ).into())
+        }
+    }
+
     fn load_tokenizer(model_path: &std::path::Path) -> PyResult<Tokenizer> {
         let tokenizer_path = model_path.join("tokenizer");
 

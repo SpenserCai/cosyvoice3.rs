@@ -238,12 +238,124 @@ class CosyVoice3:
     
     def __repr__(self) -> str: ...
 
+
+class TextNormalizer:
+    """Text normalizer for TTS preprocessing.
+    
+    Converts numbers, dates, currencies, and other non-standard text
+    to spoken form for better TTS quality.
+    """
+    
+    @property
+    def language(self) -> str:
+        """Current language setting ("auto", "zh", "en", "ja")."""
+        ...
+    
+    @property
+    def remove_erhua_enabled(self) -> bool:
+        """Whether erhua removal is enabled."""
+        ...
+    
+    def __init__(
+        self,
+        fst_dir: str,
+        lang: str = "auto",
+        remove_erhua: bool = False,
+    ) -> None:
+        """
+        Create a new text normalizer.
+        
+        Args:
+            fst_dir: Path to the directory containing FST files.
+            lang: Language code ("auto", "zh", "en", "ja"). Default: "auto".
+            remove_erhua: Whether to remove erhua (儿化音). Default: False.
+        
+        Raises:
+            ValueError: If language is invalid.
+            RuntimeError: If FST files cannot be loaded.
+        """
+        ...
+    
+    def normalize(self, text: str) -> str:
+        """
+        Normalize text for TTS.
+        
+        Args:
+            text: Input text to normalize.
+        
+        Returns:
+            Normalized text with numbers, dates, etc. converted to spoken form.
+        
+        Examples:
+            - "2024年" → "二零二四年"
+            - "$100.50" → "一百美元五十美分"
+            - "3.14" → "三点一四"
+        
+        Raises:
+            RuntimeError: If normalization fails.
+        """
+        ...
+    
+    def set_language(self, lang: str) -> None:
+        """
+        Set the language for normalization.
+        
+        Note: This recreates the normalizer with the new language setting.
+        
+        Args:
+            lang: Language code ("auto", "zh", "en", "ja").
+        
+        Raises:
+            ValueError: If language is invalid.
+        """
+        ...
+    
+    def set_remove_erhua(self, remove: bool) -> None:
+        """
+        Set whether to remove erhua (儿化音).
+        
+        Note: This recreates the normalizer with the new setting.
+        
+        Args:
+            remove: Whether to remove erhua.
+        """
+        ...
+    
+    def __repr__(self) -> str: ...
+
+
+def normalize_text(
+    fst_dir: str,
+    text: str,
+    lang: str = "auto",
+    remove_erhua: bool = False,
+) -> str:
+    """
+    Convenience function to normalize text.
+    
+    Args:
+        fst_dir: Path to the directory containing FST files.
+        text: Input text to normalize.
+        lang: Language code ("auto", "zh", "en", "ja"). Default: "auto".
+        remove_erhua: Whether to remove erhua. Default: False.
+    
+    Returns:
+        Normalized text.
+    
+    Raises:
+        ValueError: If language is invalid.
+        RuntimeError: If normalization fails.
+    """
+    ...
+
 __all__ = [
     "CosyVoice3",
     "CosyVoice3Config",
     "PyDevice",
     "SynthesisMode",
     "SamplingConfig",
+    "TextNormalizer",
+    "normalize_text",
     "__version__",
     "HAS_CUDA",
     "HAS_METAL",

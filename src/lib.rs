@@ -10,10 +10,12 @@ extern crate intel_mkl_src;
 #[cfg(feature = "accelerate")]
 extern crate accelerate_src;
 
+mod audio;
 mod config;
 mod device;
 mod error;
 mod model;
+mod normalizer;
 
 use pyo3::prelude::*;
 
@@ -21,6 +23,7 @@ pub use config::CosyVoice3Config;
 pub use device::PyDevice;
 pub use error::CosyVoice3Error;
 pub use model::CosyVoice3;
+pub use normalizer::{normalize_text, TextNormalizer};
 
 /// CosyVoice3 Python module
 #[pymodule]
@@ -30,6 +33,8 @@ fn cosyvoice3(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyDevice>()?;
     m.add_class::<SynthesisMode>()?;
     m.add_class::<SamplingConfig>()?;
+    m.add_class::<TextNormalizer>()?;
+    m.add_function(wrap_pyfunction!(normalize_text, m)?)?;
 
     // Add version info
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

@@ -33,6 +33,12 @@ tokenizers = { version = "0.21", default-features = false, features = ["onig"] }
 # Error handling
 thiserror = "2.0"
 
+# Text normalization
+wetext-rs = { git = "https://github.com/SpenserCai/wetext-rs", version = "0.1" }
+
+# Audio decoding
+symphonia = { version = "0.5", default-features = false, features = ["mp3", "ogg", "wav", "pcm", "vorbis"], optional = true }
+
 # Optional accelerators
 accelerate-src = { version = "0.3", optional = true }
 intel-mkl-src = { version = "0.8", features = ["mkl-static-lp64-iomp"], optional = true }
@@ -42,8 +48,9 @@ pyo3-build-config = "0.23"
 # pyo3-build-config = "0.27"
 
 [features]
-default = ["onnx"]
-onnx = ["dep:candle-onnx"]
+default = ["onnx", "symphonia"]
+onnx = ["dep:candle-onnx", "candle-transformers/onnx"]
+symphonia = ["dep:symphonia"]
 cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
 metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
 accelerate = ["dep:accelerate-src", "candle-core/accelerate", "candle-nn/accelerate", "candle-transformers/accelerate"]

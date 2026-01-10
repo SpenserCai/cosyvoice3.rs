@@ -2,7 +2,7 @@
 """
 Basic usage example for cosyvoice3 Python bindings.
 
-This example demonstrates how to use the CosyVoice3 TTS model.
+This example demonstrates how to use the CosyVoice3 TTS model with the simplified API.
 """
 
 import struct
@@ -55,8 +55,12 @@ def main():
     mode = SynthesisMode("zero_shot")
     print(f"Synthesis mode: {mode}")
     
-    # Example: Load model (uncomment when you have model weights)
+    # =========================================================================
+    # Example: Simplified API (recommended)
+    # =========================================================================
+    # 
     # model_dir = "/path/to/CosyVoice3-0.5B-Candle"
+    # prompt_wav = "/path/to/prompt.wav"
     # 
     # print(f"\nLoading model from: {model_dir}")
     # model = CosyVoice3(model_dir, device=device, use_f16=False)
@@ -64,12 +68,41 @@ def main():
     # print(f"Sample rate: {model.sample_rate}")
     # print(f"Has ONNX: {model.has_onnx}")
     # 
-    # # Example: Synthesize speech
-    # # You need to provide prompt features (from pre-extracted safetensors or ONNX extraction)
-    # prompt_speech_tokens = [...]  # List of speech tokens
-    # prompt_mel = [[...]]  # 2D list: [T, 80] mel spectrogram
-    # speaker_embedding = [...]  # List of 192 floats
+    # # Zero-shot voice cloning - simplest API
+    # audio = model.inference_zero_shot(
+    #     text="Hello, this is a test.",
+    #     prompt_text="You are a helpful assistant.<|endofprompt|>Hello world.",
+    #     prompt_wav=prompt_wav,
+    # )
+    # save_wav("zero_shot_output.wav", audio, model.sample_rate)
+    # print("Zero-shot synthesis saved to zero_shot_output.wav")
     # 
+    # # Cross-lingual voice cloning
+    # audio = model.inference_cross_lingual(
+    #     text="<|en|>Hello, this is cross-lingual synthesis.",
+    #     prompt_wav=prompt_wav,
+    # )
+    # save_wav("cross_lingual_output.wav", audio, model.sample_rate)
+    # print("Cross-lingual synthesis saved to cross_lingual_output.wav")
+    # 
+    # # Instruction-based synthesis
+    # audio = model.inference_instruct(
+    #     text="你好世界",
+    #     instruct_text="You are a helpful assistant. 请用广东话表达。<|endofprompt|>",
+    #     prompt_wav=prompt_wav,
+    # )
+    # save_wav("instruct_output.wav", audio, model.sample_rate)
+    # print("Instruction-based synthesis saved to instruct_output.wav")
+    
+    # =========================================================================
+    # Example: Advanced API with pre-extracted features
+    # =========================================================================
+    # 
+    # # Load pre-extracted features (useful for reusing the same prompt)
+    # features_path = "/path/to/features.safetensors"
+    # prompt_speech_tokens, prompt_mel, speaker_embedding = model.load_prompt_features(features_path)
+    # 
+    # # Use the low-level synthesize API
     # audio = model.synthesize(
     #     text="Hello, this is a test.",
     #     prompt_speech_tokens=prompt_speech_tokens,
@@ -80,10 +113,7 @@ def main():
     #     sampling_config=sampling_config,
     #     n_timesteps=10,
     # )
-    # 
-    # # Save audio to WAV file
-    # save_wav("output.wav", audio, model.sample_rate)
-    # print(f"\nAudio saved to output.wav")
+    # save_wav("advanced_output.wav", audio, model.sample_rate)
     
     print("\n" + "=" * 40)
     print("Example completed successfully!")
