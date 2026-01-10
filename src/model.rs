@@ -191,8 +191,8 @@ impl CosyVoice3 {
             SynthesisMode::ZeroShot => (prompt_text, prompt_speech_tokens.clone()),
             SynthesisMode::CrossLingual => ("", vec![]),
             SynthesisMode::Instruct => {
-                let instruct = instruct_text
-                    .unwrap_or("You are a helpful assistant.<|endofprompt|>");
+                let instruct =
+                    instruct_text.unwrap_or("You are a helpful assistant.<|endofprompt|>");
                 (instruct, vec![])
             }
         };
@@ -222,10 +222,14 @@ impl CosyVoice3 {
         let llm_prompt_speech_tensor = if llm_speech_tokens.is_empty() {
             Tensor::zeros((1, 0), DType::U32, &self.device).map_err(wrap_candle_err)?
         } else {
-            Tensor::from_slice(&llm_speech_tokens, (1, llm_speech_tokens.len()), &self.device)
-                .map_err(wrap_candle_err)?
-                .to_dtype(DType::U32)
-                .map_err(wrap_candle_err)?
+            Tensor::from_slice(
+                &llm_speech_tokens,
+                (1, llm_speech_tokens.len()),
+                &self.device,
+            )
+            .map_err(wrap_candle_err)?
+            .to_dtype(DType::U32)
+            .map_err(wrap_candle_err)?
         };
 
         let flow_prompt_speech_tensor = Tensor::from_slice(
@@ -250,7 +254,9 @@ impl CosyVoice3 {
             .map_err(wrap_candle_err)?;
 
         if speech_tokens.is_empty() {
-            return Err(CosyVoice3Error::Model("LLM generated no speech tokens".to_string()).into());
+            return Err(
+                CosyVoice3Error::Model("LLM generated no speech tokens".to_string()).into(),
+            );
         }
 
         // Flow decoder
@@ -461,17 +467,15 @@ impl CosyVoice3 {
     ///     Tuple of (prompt_speech_tokens, prompt_mel, speaker_embedding)
     #[pyo3(signature = (features_path,))]
     fn load_prompt_features(&self, features_path: &str) -> PyResult<PromptFeatures> {
-        let features = candle_core::safetensors::load(features_path, &self.device)
-            .map_err(wrap_candle_err)?;
+        let features =
+            candle_core::safetensors::load(features_path, &self.device).map_err(wrap_candle_err)?;
 
         // Load speech tokens
-        let tokens_tensor = features
-            .get("prompt_speech_tokens")
-            .ok_or_else(|| {
-                CosyVoice3Error::InvalidArgument(
-                    "Missing prompt_speech_tokens in features file".to_string(),
-                )
-            })?;
+        let tokens_tensor = features.get("prompt_speech_tokens").ok_or_else(|| {
+            CosyVoice3Error::InvalidArgument(
+                "Missing prompt_speech_tokens in features file".to_string(),
+            )
+        })?;
 
         let tokens: Vec<u32> = if tokens_tensor.dtype() == DType::I64 {
             tokens_tensor
@@ -539,8 +543,6 @@ impl CosyVoice3 {
         Ok((tokens, mel, speaker_embedding))
     }
 
-
-
     /// Get the sample rate
     #[getter]
     fn sample_rate(&self) -> usize {
@@ -595,9 +597,8 @@ impl CosyVoice3 {
             })?;
 
             // Create tensor from audio data
-            let audio_tensor =
-                Tensor::from_vec(audio_data.clone(), audio_data.len(), &Device::Cpu)
-                    .map_err(wrap_candle_err)?;
+            let audio_tensor = Tensor::from_vec(audio_data.clone(), audio_data.len(), &Device::Cpu)
+                .map_err(wrap_candle_err)?;
 
             // Extract features using frontend
             let (tokens, mel, embedding) = frontend
@@ -688,9 +689,9 @@ impl CosyVoice3 {
     }
 
     fn tokenize(&self, tokenizer: &Tokenizer, text: &str) -> PyResult<Vec<u32>> {
-        let encoding = tokenizer.encode(text, false).map_err(|e| {
-            CosyVoice3Error::Tokenizer(format!("Failed to tokenize: {}", e))
-        })?;
+        let encoding = tokenizer
+            .encode(text, false)
+            .map_err(|e| CosyVoice3Error::Tokenizer(format!("Failed to tokenize: {}", e)))?;
         Ok(encoding.get_ids().to_vec())
     }
 
