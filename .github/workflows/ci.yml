@@ -125,7 +125,7 @@ jobs:
   # CUDA compilation test (optional, Linux only)
   test-cuda:
     name: Test CUDA (Linux)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: ${{ inputs.run_cuda_test }}
     steps:
       - uses: actions/checkout@v4
