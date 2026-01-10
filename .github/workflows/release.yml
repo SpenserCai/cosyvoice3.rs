@@ -241,8 +241,10 @@ jobs:
         include:
           - cuda: '11.8.0'
             cuda_short: 'cu118'
+            msvc_toolset: '14.36'  # VS 2022 17.6, supported by CUDA 11.8
           - cuda: '12.4.0'
             cuda_short: 'cu124'
+            msvc_toolset: ''  # Use default (latest)
     
     steps:
       - uses: actions/checkout@v4
@@ -273,6 +275,8 @@ jobs:
       
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          toolset: ${{ matrix.msvc_toolset || '' }}
       
       - name: Build wheels
         env:
