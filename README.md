@@ -54,10 +54,10 @@ pip install cosyvoice3-<version>-cp310-abi3-<platform>.whl
 # Metal version (macOS Apple Silicon)
 pip install cosyvoice3-<version>-metal-cp310-abi3-macosx_11_0_arm64.whl
 
-# CUDA 11.8+ version (Linux/Windows, maximum compatibility)
+# CUDA 11.8+ version (Linux only, maximum compatibility)
 pip install cosyvoice3-<version>-cu118-cp310-abi3-<platform>.whl
 
-# CUDA 12.4+ version (Linux/Windows, latest features)
+# CUDA 12.4+ version (Linux/Windows)
 pip install cosyvoice3-<version>-cu124-cp310-abi3-<platform>.whl
 ```
 
@@ -346,7 +346,7 @@ For best voice cloning quality, the transcript should accurately match the audio
 
 ## License
 
-MIT OR Apache-2.0
+Apache-2.0
 
 ## Acknowledgments
 
