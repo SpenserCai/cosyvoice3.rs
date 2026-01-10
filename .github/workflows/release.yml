@@ -1,0 +1,325 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 0.1.0)'
+        required: true
+        type: string
+      create_release:
+        description: 'Create GitHub Release'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ==========================================================================
+  # CPU Builds
+  # ==========================================================================
+  
+  build-cpu-linux:
+    name: Build CPU (Linux x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Build wheels (manylinux)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x86_64
+          manylinux: auto
+          args: --release --features "onnx,symphonia" -o dist
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-cpu-linux-x86_64
+          path: dist/*.whl
+
+  build-cpu-macos-arm64:
+    name: Build CPU (macOS ARM64)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: aarch64-apple-darwin
+          args: --release --features "onnx,symphonia" -o dist
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-cpu-macos-arm64
+          path: dist/*.whl
+
+  build-cpu-windows:
+    name: Build CPU (Windows x86_64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x86_64-pc-windows-msvc
+          args: --release --features "onnx,symphonia" -o dist
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-cpu-windows-x86_64
+          path: dist/*.whl
+
+  # ==========================================================================
+  # Metal Build (macOS ARM64)
+  # ==========================================================================
+  
+  build-metal:
+    name: Build Metal (macOS ARM64)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: aarch64-apple-darwin
+          args: --release --features "onnx,symphonia,metal" -o dist
+      
+      - name: Rename wheel to indicate Metal
+        run: |
+          cd dist
+          for f in *.whl; do
+            # Add +metal suffix before platform tag
+            newname=$(echo "$f" | sed 's/-cp/-metal-cp/')
+            mv "$f" "$newname"
+          done
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-metal-macos-arm64
+          path: dist/*.whl
+
+  # ==========================================================================
+  # CUDA Builds (Linux)
+  # ==========================================================================
+  
+  build-cuda-linux:
+    name: Build CUDA ${{ matrix.cuda }} (Linux x86_64)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cuda: '11.8.0'
+            cuda_short: 'cu118'
+          - cuda: '12.4.0'
+            cuda_short: 'cu124'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install CUDA Toolkit
+        uses: Jimver/cuda-toolkit@v0.2.16
+        id: cuda-toolkit
+        with:
+          cuda: ${{ matrix.cuda }}
+          method: 'network'
+          sub-packages: '["nvcc", "cudart-dev", "cublas-dev"]'
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install maturin
+        run: pip install maturin
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Build wheels
+        env:
+          CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
+          CUDA_COMPUTE_CAP: "75;80;86;89;90"
+        run: |
+          mkdir -p dist
+          maturin build --release --features "onnx,symphonia,cuda" -o dist
+      
+      - name: Rename wheel to indicate CUDA version
+        run: |
+          cd dist
+          for f in *.whl; do
+            # Add +cuXXX suffix before platform tag
+            newname=$(echo "$f" | sed 's/-cp/-${{ matrix.cuda_short }}-cp/')
+            mv "$f" "$newname"
+          done
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-cuda-${{ matrix.cuda_short }}-linux-x86_64
+          path: dist/*.whl
+
+  # ==========================================================================
+  # CUDA Builds (Windows)
+  # ==========================================================================
+  
+  build-cuda-windows:
+    name: Build CUDA ${{ matrix.cuda }} (Windows x86_64)
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cuda: '11.8.0'
+            cuda_short: 'cu118'
+          - cuda: '12.4.0'
+            cuda_short: 'cu124'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install CUDA Toolkit
+        uses: Jimver/cuda-toolkit@v0.2.16
+        id: cuda-toolkit
+        with:
+          cuda: ${{ matrix.cuda }}
+          method: 'network'
+          sub-packages: '["nvcc", "cudart", "cublas_dev"]'
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install maturin
+        run: pip install maturin
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Build wheels
+        env:
+          CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
+          CUDA_COMPUTE_CAP: "75;80;86;89;90"
+        run: |
+          mkdir -p dist
+          maturin build --release --features "onnx,symphonia,cuda" -o dist
+      
+      - name: Rename wheel to indicate CUDA version
+        shell: bash
+        run: |
+          cd dist
+          for f in *.whl; do
+            newname=$(echo "$f" | sed 's/-cp/-${{ matrix.cuda_short }}-cp/')
+            mv "$f" "$newname"
+          done
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-cuda-${{ matrix.cuda_short }}-windows-x86_64
+          path: dist/*.whl
+
+  # ==========================================================================
+  # Create GitHub Release
+  # ==========================================================================
+  
+  release:
+    name: Create Release
+    needs:
+      - build-cpu-linux
+      - build-cpu-macos-arm64
+      - build-cpu-windows
+      - build-metal
+      - build-cuda-linux
+      - build-cuda-windows
+    runs-on: ubuntu-latest
+    if: ${{ inputs.create_release }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      
+      - name: List wheels
+        run: ls -la dist/
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: cosyvoice3 v${{ inputs.version }}
+          draft: true
+          prerelease: false
+          files: dist/*.whl
+          body: |
+            ## cosyvoice3 v${{ inputs.version }}
+            
+            ### Installation
+            
+            **CPU version (all platforms):**
+            ```bash
+            pip install cosyvoice3-${{ inputs.version }}-cp310-abi3-<platform>.whl
+            ```
+            
+            **Metal version (macOS ARM64):**
+            ```bash
+            pip install cosyvoice3-${{ inputs.version }}-metal-cp310-abi3-macosx_11_0_arm64.whl
+            ```
+            
+            **CUDA version (Linux/Windows):**
+            ```bash
+            # CUDA 11.8+ (maximum compatibility)
+            pip install cosyvoice3-${{ inputs.version }}-cu118-cp310-abi3-<platform>.whl
+            
+            # CUDA 12.4+ (latest features)
+            pip install cosyvoice3-${{ inputs.version }}-cu124-cp310-abi3-<platform>.whl
+            ```
+            
+            ### Wheels included
+            
+            | Variant | Platform | File |
+            |---------|----------|------|
+            | CPU | Linux x86_64 | `*-manylinux*.whl` |
+            | CPU | macOS ARM64 | `*-macosx*arm64.whl` |
+            | CPU | Windows x86_64 | `*-win_amd64.whl` |
+            | Metal | macOS ARM64 | `*-metal-*-macosx*arm64.whl` |
+            | CUDA 11.8 | Linux x86_64 | `*-cu118-*-manylinux*.whl` |
+            | CUDA 11.8 | Windows x86_64 | `*-cu118-*-win_amd64.whl` |
+            | CUDA 12.4 | Linux x86_64 | `*-cu124-*-manylinux*.whl` |
+            | CUDA 12.4 | Windows x86_64 | `*-cu124-*-win_amd64.whl` |
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

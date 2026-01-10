@@ -43,6 +43,24 @@ python scripts/convert_weights.py \
 
 ## Installation
 
+### Pre-built Wheels (Recommended)
+
+Download pre-built wheels from [GitHub Releases](https://github.com/SpenserCai/cosyvoice3.rs/releases):
+
+```bash
+# CPU version (all platforms)
+pip install cosyvoice3-<version>-cp310-abi3-<platform>.whl
+
+# Metal version (macOS Apple Silicon)
+pip install cosyvoice3-<version>-metal-cp310-abi3-macosx_11_0_arm64.whl
+
+# CUDA 11.8+ version (Linux/Windows, maximum compatibility)
+pip install cosyvoice3-<version>-cu118-cp310-abi3-<platform>.whl
+
+# CUDA 12.4+ version (Linux/Windows, latest features)
+pip install cosyvoice3-<version>-cu124-cp310-abi3-<platform>.whl
+```
+
 ### From Source
 
 ```bash
@@ -56,7 +74,7 @@ pip install maturin
 # Build and install (default: CPU + ONNX)
 maturin develop --release
 
-# Build with Metal support (macOS)
+# Build with Metal support (macOS Apple Silicon)
 maturin develop --release --features metal
 
 # Build with CUDA support (Linux/Windows)

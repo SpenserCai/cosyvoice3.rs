@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_cuda_test:
+        description: 'Run CUDA compilation test'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Rust code quality checks
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      
+      - name: Clippy
+        run: cargo clippy --all-targets --features "onnx,symphonia" -- -D warnings
+
+  # CPU build test on multiple platforms
+  test-cpu:
+    name: Test CPU (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install maturin
+        run: pip install maturin
+      
+      - name: Build (CPU)
+        run: maturin build --release --features "onnx,symphonia"
+      
+      - name: Test import
+        run: |
+          pip install target/wheels/*.whl
+          python -c "from cosyvoice3 import CosyVoice3, PyDevice; print(f'CPU: {PyDevice.best_available()}')"
+
+  # Metal build test (macOS ARM64 only)
+  test-metal:
+    name: Test Metal (macOS ARM64)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install maturin
+        run: pip install maturin
+      
+      - name: Build (Metal)
+        run: maturin build --release --features "onnx,symphonia,metal"
+      
+      - name: Test import
+        run: |
+          pip install target/wheels/*.whl
+          python -c "from cosyvoice3 import CosyVoice3, PyDevice, HAS_METAL; print(f'Metal available: {HAS_METAL}, {PyDevice.metal_is_available()}')"
+
+  # CUDA compilation test (optional, Linux only)
+  test-cuda:
+    name: Test CUDA (Linux)
+    runs-on: ubuntu-latest
+    if: ${{ inputs.run_cuda_test }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install CUDA Toolkit
+        uses: Jimver/cuda-toolkit@v0.2.16
+        id: cuda-toolkit
+        with:
+          cuda: '12.4.0'
+          method: 'network'
+          sub-packages: '["nvcc", "cudart-dev"]'
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install maturin
+        run: pip install maturin
+      
+      - name: Build (CUDA)
+        env:
+          CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
+        run: maturin build --release --features "onnx,symphonia,cuda"
+      
+      - name: Test import
+        run: |
+          pip install target/wheels/*.whl
+          python -c "from cosyvoice3 import HAS_CUDA; print(f'CUDA compiled: {HAS_CUDA}')"
