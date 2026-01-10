@@ -279,7 +279,7 @@ jobs:
       - name: Build wheels
         env:
           CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
-          CUDA_COMPUTE_CAP: "75;80;86;89;90"
+          CUDA_COMPUTE_CAP: "80"
         run: |
           New-Item -ItemType Directory -Force -Path dist
           maturin build --release --features "onnx,symphonia,cuda" -o dist
