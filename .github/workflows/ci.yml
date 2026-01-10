@@ -162,6 +162,7 @@ jobs:
         env:
           CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
           CUDA_COMPUTE_CAP: "80"
+          LD_LIBRARY_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/compat:${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/lib64
         run: maturin build --release --features "onnx,symphonia,cuda"
       
       - name: Test import

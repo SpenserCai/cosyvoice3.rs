@@ -208,6 +208,7 @@ jobs:
           NVCC_CCBIN: /usr/bin/gcc-${{ matrix.gcc_version }}
           CC: gcc-${{ matrix.gcc_version }}
           CXX: g++-${{ matrix.gcc_version }}
+          LD_LIBRARY_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/compat:${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/lib64
         run: |
           mkdir -p dist
           maturin build --release --features "onnx,symphonia,cuda" -o dist
