@@ -28,8 +28,8 @@ classifiers = [
 keywords = ["tts", "speech-synthesis", "cosyvoice", "candle", "deep-learning"]
 
 [project.urls]
-Homepage = "https://github.com/SpenserCai/candle"
-Repository = "https://github.com/SpenserCai/candle"
+Homepage = "https://github.com/SpenserCai/cosyvoice3.rs"
+Repository = "https://github.com/SpenserCai/cosyvoice3.rs"
 
 [project.optional-dependencies]
 dev = ["pytest", "numpy"]

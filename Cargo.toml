@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Python bindings for CosyVoice3 TTS using Candle"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/SpenserCai/candle"
+repository = "https://github.com/SpenserCai/cosyvoice3.rs"
 keywords = ["tts", "speech-synthesis", "cosyvoice", "candle", "pyo3"]
 categories = ["multimedia::audio", "science::ml"]
 
