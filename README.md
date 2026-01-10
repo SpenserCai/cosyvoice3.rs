@@ -22,9 +22,9 @@ Pre-converted weights are available on Hugging Face:
 **[spensercai/CosyVoice3-0.5B-Candle](https://huggingface.co/spensercai/CosyVoice3-0.5B-Candle)**
 
 ```bash
-# Download using huggingface-cli
+# Download using hf CLI
 pip install huggingface_hub
-huggingface-cli download spensercai/CosyVoice3-0.5B-Candle --local-dir ./CosyVoice3-0.5B-Candle
+hf download spensercai/CosyVoice3-0.5B-Candle --local-dir ./CosyVoice3-0.5B-Candle
 ```
 
 ### Convert from Original Weights
@@ -33,7 +33,7 @@ If you want to convert from the original PyTorch weights:
 
 ```bash
 # Download original weights
-huggingface-cli download FunAudioLLM/Fun-CosyVoice3-0.5B-2512 --local-dir ./Fun-CosyVoice3-0.5B-2512
+hf download FunAudioLLM/Fun-CosyVoice3-0.5B-2512 --local-dir ./Fun-CosyVoice3-0.5B-2512
 
 # Convert to Candle format
 python scripts/convert_weights.py \
@@ -218,7 +218,7 @@ audio = model.inference_zero_shot(
 WeText FST files are available on Hugging Face:
 
 ```bash
-huggingface-cli download mio/wetext --local-dir ./wetext-fsts
+hf download mio/wetext --local-dir ./wetext-fsts
 ```
 
 ## API Reference
