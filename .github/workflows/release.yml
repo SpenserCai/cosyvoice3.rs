@@ -182,7 +182,8 @@ jobs:
         with:
           cuda: ${{ matrix.cuda }}
           method: 'network'
-          sub-packages: '["nvcc", "cudart-dev", "cublas-dev"]'
+          sub-packages: '["nvcc", "cudart-dev"]'
+          non-cuda-sub-packages: '["libcublas", "libcublas-dev", "libcurand", "libcurand-dev", "libnvrtc", "libnvrtc-dev"]'
       
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -251,7 +252,7 @@ jobs:
         with:
           cuda: ${{ matrix.cuda }}
           method: 'network'
-          sub-packages: '["nvcc", "cudart", "cublas_dev"]'
+          sub-packages: '["nvcc", "cudart", "cublas_dev", "curand_dev", "nvrtc_dev"]'
       
       - name: Install protoc
         uses: arduino/setup-protoc@v3
