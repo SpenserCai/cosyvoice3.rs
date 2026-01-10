@@ -136,7 +136,7 @@ jobs:
         with:
           cuda: '12.4.0'
           method: 'network'
-          sub-packages: '["nvcc", "cudart-dev", "nvrtc", "nvrtc-dev"]'
+          sub-packages: '["nvcc", "cudart-dev", "nvrtc", "nvrtc-dev", "compat"]'
           non-cuda-sub-packages: '["libcublas", "libcublas-dev", "libcurand", "libcurand-dev"]'
       
       - name: Install protoc
