@@ -111,7 +111,7 @@ audio = model.inference_zero_shot(
 ```python
 from cosyvoice3 import TextNormalizer
 
-# Download FST files: huggingface-cli download mio/wetext --local-dir ./wetext
+# Download FST files: git clone https://www.modelscope.cn/models/pengzhendong/wetext
 normalizer = TextNormalizer("./wetext")
 text = normalizer.normalize("2024年1月15日，价格是$100.50")
 # → "二零二四年一月十五日，价格是一百美元五十美分"
@@ -129,4 +129,4 @@ text = normalizer.normalize("2024年1月15日，价格是$100.50")
 
 ## License
 
-MIT OR Apache-2.0
+Apache-2.0

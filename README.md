@@ -233,10 +233,10 @@ audio = model.inference_zero_shot(
 )
 ```
 
-WeText FST files are available on Hugging Face:
+WeText FST files are available on ModelScope:
 
 ```bash
-hf download mio/wetext --local-dir ./wetext-fsts
+git clone https://www.modelscope.cn/models/pengzhendong/wetext
 ```
 
 ## API Reference
