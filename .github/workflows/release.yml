@@ -27,6 +27,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -38,6 +43,9 @@ jobs:
           target: x86_64
           manylinux: auto
           args: --release --features "onnx,symphonia" -o dist
+          before-script-linux: |
+            apt-get update
+            apt-get install -y protobuf-compiler
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -50,6 +58,11 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -73,6 +86,11 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -100,6 +118,11 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -153,6 +176,11 @@ jobs:
           cuda: ${{ matrix.cuda }}
           method: 'network'
           sub-packages: '["nvcc", "cudart-dev", "cublas-dev"]'
+      
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -214,6 +242,11 @@ jobs:
           cuda: ${{ matrix.cuda }}
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cublas_dev"]'
+      
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Setup Python
         uses: actions/setup-python@v5

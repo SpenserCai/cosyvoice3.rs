@@ -21,6 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -46,6 +51,11 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -75,6 +85,11 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -113,6 +128,11 @@ jobs:
           cuda: '12.4.0'
           method: 'network'
           sub-packages: '["nvcc", "cudart-dev"]'
+      
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
