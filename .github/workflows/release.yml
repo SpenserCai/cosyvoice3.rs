@@ -242,33 +242,17 @@ jobs:
           - cuda: '11.8.0'
             cuda_short: 'cu118'
             runner: 'windows-2022'
-            msvc_toolset: '14.39'
-            msvc_component: 'Microsoft.VisualStudio.Component.VC.14.39.17.9.x86.x64'
+            msvc_toolset: '14.29'  # VS 2019 toolset, pre-installed and compatible with CUDA 11.8
           - cuda: '12.4.0'
             cuda_short: 'cu124'
             runner: 'windows-2025'
             msvc_toolset: ''
-            msvc_component: ''
     
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install MSVC 14.39 toolset (for CUDA 11.8)
-        if: matrix.msvc_component != ''
-        run: |
-          $vsInstaller = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe"
-          Write-Host "Installing MSVC component: ${{ matrix.msvc_component }}"
-          Start-Process -FilePath $vsInstaller -ArgumentList @(
-            'modify',
-            '--installPath', 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise',
-            '--add', '${{ matrix.msvc_component }}',
-            '--quiet',
-            '--norestart'
-          ) -NoNewWindow -Wait
-          Write-Host "Installation completed"
-      
       - name: List installed MSVC toolsets
-        if: matrix.msvc_component != ''
+        if: matrix.msvc_toolset != ''
         run: |
           Write-Host "=== Listing installed MSVC toolsets ==="
           $toolsetsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC"
@@ -276,14 +260,6 @@ jobs:
             Get-ChildItem -Path $toolsetsPath -Directory | ForEach-Object { Write-Host $_.Name }
           } else {
             Write-Host "Toolsets path not found: $toolsetsPath"
-          }
-          Write-Host ""
-          Write-Host "=== Checking for 14.39 specifically ==="
-          $targetPath = Join-Path $toolsetsPath "14.39*"
-          if (Test-Path $targetPath) {
-            Get-ChildItem -Path $toolsetsPath -Directory -Filter "14.39*" | ForEach-Object { Write-Host "Found: $($_.FullName)" }
-          } else {
-            Write-Host "No 14.39.x toolset found"
           }
       
       - name: Install CUDA Toolkit
