@@ -52,13 +52,16 @@ Download pre-built wheels from [GitHub Releases](https://github.com/SpenserCai/c
 pip install cosyvoice3-<version>-cp310-abi3-<platform>.whl
 
 # Metal version (macOS Apple Silicon)
-pip install cosyvoice3-<version>-metal-cp310-abi3-macosx_11_0_arm64.whl
+pip install cosyvoice3-<version>+metal-cp310-abi3-macosx_11_0_arm64.whl
 
-# CUDA 11.8+ version (Linux only, maximum compatibility)
-pip install cosyvoice3-<version>-cu118-cp310-abi3-<platform>.whl
+# CUDA 11.8+ version (Linux, maximum compatibility)
+pip install cosyvoice3-<version>+cu118-cp310-abi3-linux_x86_64.whl
 
 # CUDA 12.4+ version (Linux/Windows)
-pip install cosyvoice3-<version>-cu124-cp310-abi3-<platform>.whl
+pip install cosyvoice3-<version>+cu124-cp310-abi3-<platform>.whl
+
+# CUDA 12.8+ version (Linux, latest features)
+pip install cosyvoice3-<version>+cu128-cp310-abi3-linux_x86_64.whl
 ```
 
 ### From Source
@@ -121,6 +124,7 @@ maturin develop --release --features cuda
 **GCC Version Compatibility**: CUDA has strict GCC version requirements:
 - CUDA 11.x: requires GCC ≤ 11
 - CUDA 12.x: requires GCC ≤ 12
+- CUDA 12.8: requires GCC ≤ 13
 
 If your system default GCC is newer (e.g., GCC 13), you need to specify a compatible version:
 
