@@ -12,6 +12,11 @@ on:
         required: false
         default: true
         type: boolean
+      build_targets:
+        description: 'Build targets (comma-separated: cpu-linux,cpu-macos,cpu-windows,metal,cu118,cu124,cu128,cu124-windows or "all")'
+        required: false
+        default: 'all'
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -24,6 +29,7 @@ jobs:
   build-cpu-linux:
     name: Build CPU (Linux x86_64)
     runs-on: ubuntu-latest
+    if: ${{ inputs.build_targets == 'all' || contains(inputs.build_targets, 'cpu-linux') }}
     steps:
       - uses: actions/checkout@v4
       
@@ -55,6 +61,7 @@ jobs:
   build-cpu-macos-arm64:
     name: Build CPU (macOS ARM64)
     runs-on: macos-14
+    if: ${{ inputs.build_targets == 'all' || contains(inputs.build_targets, 'cpu-macos') }}
     steps:
       - uses: actions/checkout@v4
       
@@ -83,6 +90,7 @@ jobs:
   build-cpu-windows:
     name: Build CPU (Windows x86_64)
     runs-on: windows-latest
+    if: ${{ inputs.build_targets == 'all' || contains(inputs.build_targets, 'cpu-windows') }}
     steps:
       - uses: actions/checkout@v4
       
@@ -115,6 +123,7 @@ jobs:
   build-metal:
     name: Build Metal (macOS ARM64)
     runs-on: macos-14
+    if: ${{ inputs.build_targets == 'all' || contains(inputs.build_targets, 'metal') }}
     steps:
       - uses: actions/checkout@v4
       
@@ -163,16 +172,31 @@ jobs:
           - cuda: '12.4.0'
             cuda_short: 'cu124'
             gcc_version: '12'
+          - cuda: '12.8.0'
+            cuda_short: 'cu128'
+            gcc_version: '13'
     
     steps:
+      - name: Check if should build
+        id: check
+        run: |
+          if [[ "${{ inputs.build_targets }}" == "all" ]] || [[ "${{ inputs.build_targets }}" == *"${{ matrix.cuda_short }}"* ]]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          fi
+      
       - uses: actions/checkout@v4
+        if: steps.check.outputs.should_build == 'true'
       
       - name: Install GCC ${{ matrix.gcc_version }}
+        if: steps.check.outputs.should_build == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-${{ matrix.gcc_version }} g++-${{ matrix.gcc_version }}
       
       - name: Install CUDA Toolkit
+        if: steps.check.outputs.should_build == 'true'
         uses: Jimver/cuda-toolkit@v0.2.30
         id: cuda-toolkit
         with:
@@ -182,28 +206,34 @@ jobs:
           non-cuda-sub-packages: '["libcublas", "libcublas-dev", "libcurand", "libcurand-dev"]'
       
       - name: Install protoc
+        if: steps.check.outputs.should_build == 'true'
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Setup Python
+        if: steps.check.outputs.should_build == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       
       - name: Install maturin
+        if: steps.check.outputs.should_build == 'true'
         run: pip install maturin
       
       - name: Install Rust
+        if: steps.check.outputs.should_build == 'true'
         uses: dtolnay/rust-toolchain@stable
       
       - name: Set version with local identifier
+        if: steps.check.outputs.should_build == 'true'
         run: |
           # Update pyproject.toml version to include +cuXXX local identifier
           sed -i 's/version = "[^"]*"/version = "${{ inputs.version }}+${{ matrix.cuda_short }}"/' pyproject.toml
           cat pyproject.toml | grep version
       
       - name: Build wheels
+        if: steps.check.outputs.should_build == 'true'
         env:
           CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
           CUDA_COMPUTE_CAP: "80"
@@ -216,6 +246,7 @@ jobs:
           maturin build --release --features "onnx,symphonia,cuda" -o dist
       
       - name: Upload artifact
+        if: steps.check.outputs.should_build == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: wheels-cuda-${{ matrix.cuda_short }}-linux-x86_64
@@ -228,6 +259,7 @@ jobs:
   build-cuda-windows:
     name: Build CUDA 12.4 (Windows x86_64)
     runs-on: windows-2025
+    if: ${{ inputs.build_targets == 'all' || contains(inputs.build_targets, 'cu124-windows') }}
     
     steps:
       - uses: actions/checkout@v4
@@ -293,6 +325,7 @@ jobs:
       - build-metal
       - build-cuda-linux
       - build-cuda-windows
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     
     steps:
@@ -370,8 +403,11 @@ jobs:
             # CUDA 11.8+ (maximum compatibility)
             pip install cosyvoice3-${{ inputs.version }}+cu118-cp310-abi3-<platform>.whl
             
-            # CUDA 12.4+ (latest features)
+            # CUDA 12.4+
             pip install cosyvoice3-${{ inputs.version }}+cu124-cp310-abi3-<platform>.whl
+            
+            # CUDA 12.8+ (latest features)
+            pip install cosyvoice3-${{ inputs.version }}+cu128-cp310-abi3-<platform>.whl
             ```
             
             ### Wheels included
@@ -384,6 +420,7 @@ jobs:
             | Metal | macOS ARM64 | `cosyvoice3-${{ inputs.version }}+metal-*-macosx*arm64.whl` |
             | CUDA 11.8 | Linux x86_64 | `cosyvoice3-${{ inputs.version }}+cu118-*-linux*.whl` |
             | CUDA 12.4 | Linux x86_64 | `cosyvoice3-${{ inputs.version }}+cu124-*-linux*.whl` |
+            | CUDA 12.8 | Linux x86_64 | `cosyvoice3-${{ inputs.version }}+cu128-*-linux*.whl` |
             | CUDA 12.4 | Windows x86_64 | `cosyvoice3-${{ inputs.version }}+cu124-*-win_amd64.whl` |
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
