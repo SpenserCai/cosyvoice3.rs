@@ -128,20 +128,17 @@ jobs:
         with:
           python-version: '3.11'
       
+      - name: Set version with local identifier
+        run: |
+          # Update pyproject.toml version to include +metal local identifier
+          sed -i '' 's/version = "[^"]*"/version = "${{ inputs.version }}+metal"/' pyproject.toml
+          cat pyproject.toml | grep version
+      
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           target: aarch64-apple-darwin
           args: --release --features "onnx,symphonia,metal" -o dist
-      
-      - name: Rename wheel to indicate Metal
-        run: |
-          cd dist
-          for f in *.whl; do
-            # Add +metal suffix before platform tag
-            newname=$(echo "$f" | sed 's/-cp/-metal-cp/')
-            mv "$f" "$newname"
-          done
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -200,6 +197,12 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       
+      - name: Set version with local identifier
+        run: |
+          # Update pyproject.toml version to include +cuXXX local identifier
+          sed -i 's/version = "[^"]*"/version = "${{ inputs.version }}+${{ matrix.cuda_short }}"/' pyproject.toml
+          cat pyproject.toml | grep version
+      
       - name: Build wheels
         env:
           CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
@@ -211,16 +214,6 @@ jobs:
         run: |
           mkdir -p dist
           maturin build --release --features "onnx,symphonia,cuda" -o dist
-      
-      - name: Rename wheel to indicate CUDA version and Ubuntu
-        run: |
-          cd dist
-          for f in *.whl; do
-            # Add +cuXXX and ubuntu22.04 suffix before platform tag
-            # e.g., cosyvoice3-0.1.0-cp310-abi3-linux_x86_64.whl -> cosyvoice3-0.1.0-cu118-cp310-abi3-ubuntu22_04_x86_64.whl
-            newname=$(echo "$f" | sed 's/-cp/-${{ matrix.cuda_short }}-cp/' | sed 's/linux_x86_64/ubuntu22_04_x86_64/')
-            mv "$f" "$newname"
-          done
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -266,6 +259,13 @@ jobs:
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
       
+      - name: Set version with local identifier
+        shell: bash
+        run: |
+          # Update pyproject.toml version to include +cu124 local identifier
+          sed -i 's/version = "[^"]*"/version = "${{ inputs.version }}+cu124"/' pyproject.toml
+          cat pyproject.toml | grep version
+      
       - name: Build wheels
         env:
           CUDA_PATH: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
@@ -273,15 +273,6 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist
           maturin build --release --features "onnx,symphonia,cuda" -o dist
-      
-      - name: Rename wheel to indicate CUDA version
-        shell: bash
-        run: |
-          cd dist
-          for f in *.whl; do
-            newname=$(echo "$f" | sed 's/-cp/-cu124-cp/')
-            mv "$f" "$newname"
-          done
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -371,28 +362,28 @@ jobs:
             
             **Metal version (macOS ARM64):**
             ```bash
-            pip install cosyvoice3-${{ inputs.version }}-metal-cp310-abi3-macosx_11_0_arm64.whl
+            pip install cosyvoice3-${{ inputs.version }}+metal-cp310-abi3-macosx_11_0_arm64.whl
             ```
             
             **CUDA version (Linux/Windows):**
             ```bash
             # CUDA 11.8+ (maximum compatibility)
-            pip install cosyvoice3-${{ inputs.version }}-cu118-cp310-abi3-<platform>.whl
+            pip install cosyvoice3-${{ inputs.version }}+cu118-cp310-abi3-<platform>.whl
             
             # CUDA 12.4+ (latest features)
-            pip install cosyvoice3-${{ inputs.version }}-cu124-cp310-abi3-<platform>.whl
+            pip install cosyvoice3-${{ inputs.version }}+cu124-cp310-abi3-<platform>.whl
             ```
             
             ### Wheels included
             
             | Variant | Platform | File |
             |---------|----------|------|
-            | CPU | Linux x86_64 | `*-manylinux*.whl` |
-            | CPU | macOS ARM64 | `*-macosx*arm64.whl` |
-            | CPU | Windows x86_64 | `*-win_amd64.whl` |
-            | Metal | macOS ARM64 | `*-metal-*-macosx*arm64.whl` |
-            | CUDA 11.8 | Ubuntu 22.04 x86_64 | `*-cu118-*-ubuntu22_04*.whl` |
-            | CUDA 12.4 | Ubuntu 22.04 x86_64 | `*-cu124-*-ubuntu22_04*.whl` |
-            | CUDA 12.4 | Windows x86_64 | `*-cu124-*-win_amd64.whl` |
+            | CPU | Linux x86_64 | `cosyvoice3-${{ inputs.version }}-*-manylinux*.whl` |
+            | CPU | macOS ARM64 | `cosyvoice3-${{ inputs.version }}-*-macosx*arm64.whl` |
+            | CPU | Windows x86_64 | `cosyvoice3-${{ inputs.version }}-*-win_amd64.whl` |
+            | Metal | macOS ARM64 | `cosyvoice3-${{ inputs.version }}+metal-*-macosx*arm64.whl` |
+            | CUDA 11.8 | Linux x86_64 | `cosyvoice3-${{ inputs.version }}+cu118-*-linux*.whl` |
+            | CUDA 12.4 | Linux x86_64 | `cosyvoice3-${{ inputs.version }}+cu124-*-linux*.whl` |
+            | CUDA 12.4 | Windows x86_64 | `cosyvoice3-${{ inputs.version }}+cu124-*-win_amd64.whl` |
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

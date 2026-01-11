@@ -81,6 +81,73 @@ maturin develop --release --features metal
 maturin develop --release --features cuda
 ```
 
+#### Linux CUDA Build Notes
+
+**Recommended**: For Linux users with CUDA, building from source is recommended over pre-built wheels for better compatibility.
+
+**Prerequisites**:
+
+1. **Install Rust toolchain**:
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+```
+
+2. **Install protoc** (Protocol Buffers compiler):
+```bash
+# Ubuntu/Debian
+sudo apt install protobuf-compiler
+
+# Or download from GitHub releases
+PB_REL="https://github.com/protocolbuffers/protobuf/releases"
+curl -LO $PB_REL/download/v28.3/protoc-28.3-linux-x86_64.zip
+sudo unzip protoc-28.3-linux-x86_64.zip -d /usr/local
+```
+
+3. **Install maturin**:
+```bash
+pip install maturin
+```
+
+**Build**:
+```bash
+# Install with editable mode
+pip install -e .
+
+# Or use maturin directly
+maturin develop --release --features cuda
+```
+
+**GCC Version Compatibility**: CUDA has strict GCC version requirements:
+- CUDA 11.x: requires GCC ≤ 11
+- CUDA 12.x: requires GCC ≤ 12
+
+If your system default GCC is newer (e.g., GCC 13), you need to specify a compatible version:
+
+```bash
+# Check your CUDA version
+nvcc --version
+
+# Check your GCC version
+gcc --version
+
+# If GCC is too new, install a compatible version and set NVCC_CCBIN
+# For Ubuntu/Debian:
+sudo apt install gcc-11 g++-11  # For CUDA 11.x
+sudo apt install gcc-12 g++-12  # For CUDA 12.x
+
+# Build with specific GCC version
+NVCC_CCBIN=/usr/bin/gcc-11 maturin develop --release --features cuda  # CUDA 11.x
+NVCC_CCBIN=/usr/bin/gcc-12 maturin develop --release --features cuda  # CUDA 12.x
+```
+
+**Environment Variables for CUDA Build**:
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NVCC_CCBIN` | Path to GCC compiler for nvcc | `/usr/bin/gcc-11` |
+| `CUDA_COMPUTE_CAP` | Target GPU compute capability | `80` (for A100), `89` (for RTX 4090) |
+| `CUDA_PATH` | CUDA installation path (usually auto-detected) | `/usr/local/cuda` |
+
 ### Build Wheel
 
 ```bash
